@@ -8,6 +8,8 @@ This is a ROSSerial Arduino driver for the [SparkFun IMU ICM-20948](https://www.
 * HTS221: Temperature and Humidity Sensor
 * LPS22HB: Pressure Sensor
 
+It is tested with ROS1 Noetic on a Raspberry Pi 4B with an Arduino Nano33 Sense BLE but may work on other configurations.
+
 ## Repository Contents
 
 * [**/examples**](./examples) - Example sketches for the library (.ino). Run from the Arduino IDE.
@@ -28,6 +30,17 @@ A lot of information and test scripts have been removed from this library for si
 ## Installation
 
 * Install the libraries above by searching in the Arduino IDE `Tools > Manage Libraries...`.  You do not need to install ICM-20948 which has been included and modified to support the Digital Motion Processor (DMP).
+* Install ROS Serial.  Change noetic to your ROS version: kinetic, melodic, noetic, etc.
+```
+sudo apt-get install ros-noetic-rosserial-arduino
+sudo apt-get install ros-noetic-rosserial
+```
+* Install ros_lib into the Arduino Environment
+```
+cd ~/Arduino/libraries
+rm -rf ros_lib
+rosrun rosserial_arduino make_libraries.py .
+```
 
 ## License Information
 
