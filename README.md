@@ -1,32 +1,25 @@
-# SparkFun ICM-20948 Arduino Library
+# ROS Arduino ICM-20948 BNO080
 
-This is the SparkFun library for the TDK InvenSense ICM-20948 Inertial Measurement Unit 9-Degree Of Freedom sensor as used on the [SparkFun 9DoF IMU Breakout - ICM-20948 (Qwiic)](https://www.sparkfun.com/products/15335).
+This is a ROSSerial Arduino driver with the SparkFun libraries for the TDK InvenSense ICM-20948 Inertial Measurement Unit 9-Degree Of Freedom sensor as used on the [SparkFun IMU ICM-20948](https://www.sparkfun.com/products/15335) and the BNO080 Inertial Measurement Unit 9-Degree of Freedom sensor as used on the [SparkFun IMU BNO080](https://www.sparkfun.com/products/14686).
 
-Version 1.2 of the library includes support for the InvenSense Digital Motion Processor (DMP™). You can find further details in [DMP.md](./DMP.md).
-
-## Contributing
-
-If you would like to contribute to this library: please do, we truly appreciate it, but please follow [these guidelines](./CONTRIBUTING.md). Thanks!
+Both of these IMUs have a built in filter with autocalibration to produce a rotation vector in quaternions.  This driver extracts those rotation vectors and sends them via USB to the ROS master.  The raw IMU data is omitted to prevent timing issues.  All of the communication is done via I2C between the IMUs and the Arduino but it could be reconfigured for SPI.  This was tested on an Arduino Sense Nano.
 
 ## Repository Contents
 
 * [**/examples**](./examples) - Example sketches for the library (.ino). Run these from the Arduino IDE.
 * [**/src**](./src) - Source files for the library (.cpp, .h).
-* [**keywords.txt**](./keywords.txt) - Keywords from this library that will be highlighted in the Arduino IDE.
-* [**library.properties**](./library.properties) - General library properties for the Arduino package manager.
 * [**CONTRIBUTING.md**](./CONTRIBUTING.md) - Guidelines on how to contribute to this library.
-* [**DMP.md**](./DMP.md) - Information about the InvenSense Digital Motion Processor (DMP™)
 
 ## Documentation
 
-* **[Hookup Guide](https://learn.sparkfun.com/tutorials/sparkfun-9dof-imu-icm-20948-breakout-hookup-guide)** - Basic hookup guide for the SparkFun 9DoF IMU Breakout.
-* **[Installing an Arduino Library Guide](https://learn.sparkfun.com/tutorials/installing-an-arduino-library)** - Basic information on how to install an Arduino library.
+A lot of information and test scripts have been removed from this library for simplicity, refer to the original libraries for more information.
 
-## Products that use this Library
+* **[Sparkfun ICM-20948 Library](https://github.com/GAVLab/ros_arduino_ICM-20948_BNO080)**
+* **[Sparkfun BNO080 Library](https://github.com/sparkfun/SparkFun_BNO080_Arduino_Library)**
 
-* [SparkFun 9DoF IMU Breakout - ICM-20948 (Qwiic) - SEN-15335](https://www.sparkfun.com/products/15335)
-* [SparkFun OpenLog Artemis - DEV-16832](https://www.sparkfun.com/products/16832)
-* [SparkFun MicroMod Asset Tracker Carrier Board - DEV-17272](https://www.sparkfun.com/products/17272)
+## Installation
+
+* Install the library for BNO080 by searching `SparkFun_BNO080` in the Arduino IDE `Tools > Manage Libraries...`.  You do not need to install ICM-20948 which has been included and modified to support the Digital Motion Processor (DMP).
 
 ## License Information
 

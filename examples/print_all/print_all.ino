@@ -1,110 +1,77 @@
 /****************************************************************
- * Example7_DMP_Quat6_EulerAngles.ino
- * ICM 20948 Arduino Library Demo
- * Initialize the DMP based on the TDK InvenSense ICM20948_eMD_nucleo_1.0 example-icm20948
- * Paul Clark, February 15th 2021
- * Based on original code by:
- * Owen Lyke @ SparkFun Electronics
- * Original Creation Date: April 17 2019
- * 
- * ** This example is based on InvenSense's _confidential_ Application Note "Programming Sequence for DMP Hardware Functions".
- * ** We are grateful to InvenSense for sharing this with us.
- * 
- * ** Important note: by default the DMP functionality is disabled in the library
- * ** as the DMP firmware takes up 14301 Bytes of program memory.
- * ** To use the DMP, you will need to:
- * ** Edit ICM_20948_C.h
- * ** Uncomment line 29: #define ICM_20948_USE_DMP
- * ** Save changes
- * ** If you are using Windows, you can find ICM_20948_C.h in:
- * ** Documents\Arduino\libraries\SparkFun_ICM-20948_ArduinoLibrary\src\util
- *
  * Please see License.md for the license information.
  *
  * Distributed as-is; no warranty is given.
  ***************************************************************/
 
-//#define QUAT_ANIMATION // Uncomment this line to output data in the correct format for ZaneL's Node.js Quaternion animation tool: https://github.com/ZaneL/quaternion_sensor_3d_nodejs
+#include <Wire.h>
+#include "SparkFun_BNO080_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_BNO080
+#include <Arduino_LSM9DS1.h> // Click here to get the library: http://librarymanager/All#Arduino_LSM9DS1
+#include <Arduino_HTS221.h> // Click here to get the library: http://librarymanager/All#Arduino_HTS221
+#include <Arduino_LPS22HB.h> // Click here to get the library: http://librarymanager/All#Arduino_LPS22HB
+#include "ICM_20948.h"
 
-#include "ICM_20948.h"  // Click here to get the library: http://librarymanager/All#SparkFun_ICM_20948_IMU
-
-//#define USE_SPI       // Uncomment this to use SPI
-
+// ---- General Configuration ----
 #define SERIAL_PORT Serial
+#define WIRE_PORT Wire  // Your desired Wire port
+#define GACC 9.80665f // Acceleration due to gravity on Earth
 
-#define SPI_PORT SPI    // Your desired SPI port.       Used only when "USE_SPI" is defined
-#define CS_PIN 2        // Which pin you connect CS to. Used only when "USE_SPI" is defined
+// ---- BNO080 Configuration ----
+BNO080 myBNO;
 
-#define WIRE_PORT Wire  // Your desired Wire port.      Used when "USE_SPI" is not defined
+// ---- ICM20948 Configuration ----
 #define AD0_VAL   1     // The value of the last bit of the I2C address.
                         // On the SparkFun 9DoF IMU breakout the default is 1, and when
                         // the ADR jumper is closed the value becomes 0
-
-#ifdef USE_SPI
-  ICM_20948_SPI myICM;  // If using SPI create an ICM_20948_SPI object
-#else
-  ICM_20948_I2C myICM;  // Otherwise create an ICM_20948_I2C object
-#endif
-
+ICM_20948_I2C myICM;  // Otherwise create an ICM_20948_I2C object
 
 void setup() {
+  // ---- General Initialization ----
 
   SERIAL_PORT.begin(115200); // Start the serial console
-#ifndef QUAT_ANIMATION
-  SERIAL_PORT.println(F("ICM-20948 Example"));
-#endif
-
   delay(100);
+  WIRE_PORT.begin();
+  WIRE_PORT.setClock(400000); //Increase I2C data rate to 400kHz
 
-#ifndef QUAT_ANIMATION
-  while (SERIAL_PORT.available()) // Make sure the serial RX buffer is empty
-    SERIAL_PORT.read();
+  // ---- Initialize BNO080 ----
+  if (myBNO.begin() == false)
+  {
+    SERIAL_PORT.println("BNO080 not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
+    while (1);
+  }
+  myBNO.enableRotationVector(50); //Send data update every 50ms
 
-  SERIAL_PORT.println(F("Press any key to continue..."));
+  // ---- Initialize LSM9DS1 ----
+  if (!IMU.begin()) {
+    SERIAL_PORT.println("Failed to initialize IMU!");
+    while (1);
+  }
 
-  while (!SERIAL_PORT.available()) // Wait for the user to press a key (send any serial character)
-    ;
-#endif
+  // ---- Initialize HTS221 ----
+  if (!HTS.begin()) {
+    Serial.println("Failed to initialize humidity temperature sensor!");
+    while (1);
+  }
 
-#ifdef USE_SPI
-    SPI_PORT.begin();
-#else
-    WIRE_PORT.begin();
-    WIRE_PORT.setClock(400000);
-#endif
-
-#ifndef QUAT_ANIMATION
-  //myICM.enableDebugging(); // Uncomment this line to enable helpful debug messages on Serial
-#endif
-
+  // ---- Initialize LPS22HB ----
+  if (!BARO.begin()) {
+    Serial.println("Failed to initialize pressure sensor!");
+    while (1);
+  }
+  
+  // ---- Initialize ICM20948 ----
   bool initialized = false;
-  while( !initialized ){
 
+  while( !initialized ){
     // Initialize the ICM-20948
     // If the DMP is enabled, .begin performs a minimal startup. We need to configure the sample mode etc. manually.
-#ifdef USE_SPI
-    myICM.begin( CS_PIN, SPI_PORT );
-#else
     myICM.begin( WIRE_PORT, AD0_VAL );
-#endif
-
-#ifndef QUAT_ANIMATION
-    SERIAL_PORT.print( F("Initialization of the sensor returned: ") );
-    SERIAL_PORT.println( myICM.statusString() );
-#endif
     if( myICM.status != ICM_20948_Stat_Ok ){
-#ifndef QUAT_ANIMATION
-      SERIAL_PORT.println( F("Trying again...") );
-#endif
       delay(500);
     }else{
       initialized = true;
     }
   }
-
-#ifndef QUAT_ANIMATION
-  SERIAL_PORT.println(F("Device connected!"));
-#endif
 
   // The ICM-20948 is awake and ready but hasn't been configured. Let's step through the configuration
   // sequence from InvenSense's _confidential_ Application Note "Programming Sequence for DMP Hardware Functions".
@@ -293,8 +260,8 @@ void setup() {
   //    INV_ICM20948_SENSOR_LINEAR_ACCELERATION         (16-bit accel + 32-bit 6-axis quaternion)
   //    INV_ICM20948_SENSOR_ORIENTATION                 (32-bit 9-axis quaternion + heading accuracy)
 
-  // Enable the DMP Game Rotation Vector sensor
-  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_GAME_ROTATION_VECTOR) == ICM_20948_Stat_Ok);
+  // Enable the DMP orientation sensor
+  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION) == ICM_20948_Stat_Ok);
 
   // Enable any additional sensors / features
   //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
@@ -306,7 +273,7 @@ void setup() {
   // Setting value can be calculated as follows:
   // Value = (DMP running rate / ODR ) - 1
   // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
-  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Quat6, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Quat9, 0) == ICM_20948_Stat_Ok); // Set to the maximum
   //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
   //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro, 0) == ICM_20948_Stat_Ok); // Set to the maximum
   //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
@@ -326,13 +293,7 @@ void setup() {
   success &= (myICM.resetFIFO() == ICM_20948_Stat_Ok);
 
   // Check success
-  if( success )
-  {
-#ifndef QUAT_ANIMATION
-    SERIAL_PORT.println(F("DMP enabled!"));
-#endif
-  }
-  else
+  if (!success)
   {
     SERIAL_PORT.println(F("Enable DMP failed!"));
     SERIAL_PORT.println(F("Please check that you have uncommented line 29 (#define ICM_20948_USE_DMP) in ICM_20948_C.h..."));
@@ -343,6 +304,46 @@ void setup() {
 
 void loop()
 {
+  float gax,gay,gaz,ax,ay,az,gx,gy,gz,mx,my,mz;
+
+  if (IMU.accelerationAvailable()) {
+    IMU.readAcceleration(gax,gay,gaz);
+    ax = gax*GACC;
+    ay = gay*GACC;
+    az = gaz*GACC;
+  }
+  if (IMU.gyroscopeAvailable()) {
+    IMU.readGyroscope(gx, gy, gz);
+  }
+  if (IMU.magneticFieldAvailable()) {
+    IMU.readMagneticField(mx, my, mz);
+  }
+
+  SERIAL_PORT.print(F("LSM9DS1: (ax:"));
+  SERIAL_PORT.print(ax,2);
+  SERIAL_PORT.print(F(",ay:"));
+  SERIAL_PORT.print(ay,2);
+  SERIAL_PORT.print(F(",az:"));
+  SERIAL_PORT.print(az,2);
+  SERIAL_PORT.print(F(")m/s^2\t"));
+  
+  SERIAL_PORT.print(F("(gx:"));
+  SERIAL_PORT.print(gx,2);
+  SERIAL_PORT.print(F(",gy:"));
+  SERIAL_PORT.print(gy,2);
+  SERIAL_PORT.print(F(",gz:"));
+  SERIAL_PORT.print(gz,2);
+  SERIAL_PORT.print(F(")degrees/s\t")); 
+
+  SERIAL_PORT.print(F("(mx:"));
+  SERIAL_PORT.print(mx,2);
+  SERIAL_PORT.print(F(",my:"));
+  SERIAL_PORT.print(my,2);
+  SERIAL_PORT.print(F(",mz:"));
+  SERIAL_PORT.print(mz,2);
+  SERIAL_PORT.println(F(")uT\t")); 
+
+  
   // Read any DMP data waiting in the FIFO
   // Note:
   //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFONoDataAvail if no data is available.
@@ -355,67 +356,20 @@ void loop()
   
   if(( myICM.status == ICM_20948_Stat_Ok ) || ( myICM.status == ICM_20948_Stat_FIFOMoreDataAvail )) // Was valid data available?
   {
-    //SERIAL_PORT.print(F("Received data! Header: 0x")); // Print the header in HEX so we can see what data is arriving in the FIFO
-    //if ( data.header < 0x1000) SERIAL_PORT.print( "0" ); // Pad the zeros
-    //if ( data.header < 0x100) SERIAL_PORT.print( "0" );
-    //if ( data.header < 0x10) SERIAL_PORT.print( "0" );
-    //SERIAL_PORT.println( data.header, HEX );
-    
-    if ( (data.header & DMP_header_bitmap_Quat6) > 0 ) // We have asked for GRV data so we should receive Quat6
+    if ( (data.header & DMP_header_bitmap_Quat9) > 0 ) // We have asked for orientation data so we should receive Quat9
     {
       // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
       // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
       // The quaternion data is scaled by 2^30.
-
-      //SERIAL_PORT.printf("Quat6 data is: Q1:%ld Q2:%ld Q3:%ld\r\n", data.Quat6.Data.Q1, data.Quat6.Data.Q2, data.Quat6.Data.Q3);
-
+      
       // Scale to +/- 1
-      double q1 = ((double)data.Quat6.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
-      double q2 = ((double)data.Quat6.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
-      double q3 = ((double)data.Quat6.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
-      
-/*
-      SERIAL_PORT.print(F("Q1:"));
-      SERIAL_PORT.print(q1, 3);
-      SERIAL_PORT.print(F(" Q2:"));
-      SERIAL_PORT.print(q2, 3);
-      SERIAL_PORT.print(F(" Q3:"));
-      SERIAL_PORT.println(q3, 3);
-*/
-
-      // Convert the quaternions to Euler angles (roll, pitch, yaw)
-      // https://en.wikipedia.org/w/index.php?title=Conversion_between_quaternions_and_Euler_angles&section=8#Source_code_2
-      
+      double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+      double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+      double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
       double q0 = sqrt( 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
 
-      double q2sqr = q2 * q2;
-
-      // roll (x-axis rotation)
-      double t0 = +2.0 * (q0 * q1 + q2 * q3);
-      double t1 = +1.0 - 2.0 * (q1 * q1 + q2sqr);
-      double roll = atan2(t0, t1) * 180.0 / PI;
-
-      // pitch (y-axis rotation)
-      double t2 = +2.0 * (q0 * q2 - q3 * q1);
-      t2 = t2 > 1.0 ? 1.0 : t2;
-      t2 = t2 < -1.0 ? -1.0 : t2;
-      double pitch = asin(t2) * 180.0 / PI;
-
-      // yaw (z-axis rotation)
-      double t3 = +2.0 * (q0 * q3 + q1 * q2);
-      double t4 = +1.0 - 2.0 * (q2sqr + q3 * q3);
-      double yaw = atan2(t3, t4) * 180.0 / PI;
-
-#ifndef QUAT_ANIMATION
-      SERIAL_PORT.print(F("Roll:"));
-      SERIAL_PORT.print(roll, 1);
-      SERIAL_PORT.print(F(" Pitch:"));
-      SERIAL_PORT.print(pitch, 1);
-      SERIAL_PORT.print(F(" Yaw:"));
-      SERIAL_PORT.println(yaw, 1);
-#else
       // Output the Quaternion data in the format expected by ZaneL's Node.js Quaternion animation tool
-      SERIAL_PORT.print(F("{\"quat_w\":"));
+      SERIAL_PORT.print(F("ICM: {\"quat_w\":"));
       SERIAL_PORT.print(q0, 3);
       SERIAL_PORT.print(F(", \"quat_x\":"));
       SERIAL_PORT.print(q1, 3);
@@ -424,12 +378,44 @@ void loop()
       SERIAL_PORT.print(F(", \"quat_z\":"));
       SERIAL_PORT.print(q3, 3);
       SERIAL_PORT.println(F("}"));
-#endif
+      
     }
   }
 
-  if ( myICM.status != ICM_20948_Stat_FIFOMoreDataAvail ) // If more data is available then we should read it right away - and not delay
+  //Look for reports from the IMU
+  if (myBNO.dataAvailable() == true)
   {
-    delay(10);
+    float quatI = myBNO.getQuatI();
+    float quatJ = myBNO.getQuatJ();
+    float quatK = myBNO.getQuatK();
+    float quatReal = myBNO.getQuatReal();
+    float quatRadianAccuracy = myBNO.getQuatRadianAccuracy();
+
+    SERIAL_PORT.print(F("BNO: {\"quat_w\":"));
+    SERIAL_PORT.print(quatReal, 3);
+    SERIAL_PORT.print(F(", \"quat_x\":"));
+    SERIAL_PORT.print(quatI, 3);
+    SERIAL_PORT.print(F(", \"quat_y\":"));
+    SERIAL_PORT.print(quatJ, 3);
+    SERIAL_PORT.print(F(", \"quat_z\":"));
+    SERIAL_PORT.print(quatK, 3);
+    SERIAL_PORT.println(F("}"));
   }
+
+  float temperature = HTS.readTemperature();
+  float humidity    = HTS.readHumidity();
+  SERIAL_PORT.print("HTS: Temp = ");
+  SERIAL_PORT.print(temperature);
+  SERIAL_PORT.print(" °C");
+  SERIAL_PORT.print("Humidity    = ");
+  SERIAL_PORT.print(humidity);
+  SERIAL_PORT.println(" %");
+
+  // read the sensor value
+  float pressure = BARO.readPressure();
+  // print the sensor value
+  SERIAL_PORT.print("LPS: Pressure = ");
+  SERIAL_PORT.print(pressure);
+  SERIAL_PORT.println(" kPa");
+  
 }
