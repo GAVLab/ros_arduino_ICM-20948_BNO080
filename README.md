@@ -1,6 +1,6 @@
 # ROS Arduino Budget INS
 
-This is a ROSSerial Arduino driver for the [SparkFun IMU ICM-20948](https://www.sparkfun.com/products/15335), [SparkFun IMU BNO080](https://www.sparkfun.com/products/14686), and [Arduino Nano33 Sense BLE](https://store.arduino.cc/usa/nano-33-ble-sense)  The full sensor list supported by this library:
+This is a ROSSerial Arduino driver for the [SparkFun IMU ICM-20948](https://www.sparkfun.com/products/15335), [SparkFun IMU BNO080](https://www.sparkfun.com/products/14686), and [Arduino Nano33 Sense BLE](https://store.arduino.cc/usa/nano-33-ble-sense)  The total cost of these three items is about $83.  The full sensor list supported by this library:
 
 * ICM-20948: 9DOF IMU with On-board Fusion
 * BNO080: 9DOF IMU with On-board Fusion

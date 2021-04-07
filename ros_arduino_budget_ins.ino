@@ -9,7 +9,7 @@
 #include <Arduino_LSM9DS1.h> // Click here to get the library: http://librarymanager/All#Arduino_LSM9DS1
 #include <Arduino_HTS221.h> // Click here to get the library: http://librarymanager/All#Arduino_HTS221
 #include <Arduino_LPS22HB.h> // Click here to get the library: http://librarymanager/All#Arduino_LPS22HB
-#include "ICM_20948.h"
+#include "src/ICM_20948.h"
 
 // ---- General Configuration ----
 #define SERIAL_PORT Serial
