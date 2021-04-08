@@ -25,8 +25,8 @@ void setup() {
 
 void loop() {
   // read all the sensor values
-  float temperature = HTS.readTemperature();
-  float humidity    = HTS.readHumidity();
+  long temperature = HTS.readTemperature();
+  long humidity    = HTS.readHumidity();
 
   // print each of the sensor values
   Serial.print("Temperature = ");
