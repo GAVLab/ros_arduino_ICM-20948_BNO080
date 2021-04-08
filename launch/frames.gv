@@ -1,0 +1,7 @@
+digraph G {
+"imu_link_old" -> "imu_link"[label="Broadcaster: /tf_imu\nAverage rate: 98.284 Hz\nMost recent transform: 1617848885.896 ( 0.000 sec old)\nBuffer length: 4.986 sec\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1617848885.896"[ shape=plaintext ] ;
+ }->"imu_link_old";
+}

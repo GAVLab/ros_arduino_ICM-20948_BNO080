@@ -4,6 +4,16 @@
  * Distributed as-is; no warranty is given.
  ***************************************************************/
 
+// ROS Libraries
+#include <ros.h>
+#include <ros/time.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
+#include <sensor_msgs/RelativeHumidity.h>
+#include <sensor_msgs/Temperature.h>
+#include <sensor_msgs/FluidPressure.h>
+
+// Sensor Libraries
 #include <Wire.h>
 #include "SparkFun_BNO080_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_BNO080
 #include <Arduino_LSM9DS1.h> // Click here to get the library: http://librarymanager/All#Arduino_LSM9DS1
@@ -12,9 +22,42 @@
 #include "src/ICM_20948.h"
 
 // ---- General Configuration ----
-#define SERIAL_PORT Serial
+// #define SERIAL_PORT Serial
 #define WIRE_PORT Wire  // Your desired Wire port
 #define GACC 9.80665f // Acceleration due to gravity on Earth
+
+// Frequency rate in Hz
+#define bno080_rate 20
+#define lsm9ds1_rate 100
+#define icm20948_rate 20
+#define hts221_rate 1
+#define lps22hb_rate 1
+
+// ---- ROS Configuration ----
+ros::NodeHandle  nh;
+#define BAUD 115200
+
+sensor_msgs::Imu bno080_msg;
+sensor_msgs::Imu lsm9ds1_msg;
+sensor_msgs::MagneticField lsm9ds1_mag_msg;
+sensor_msgs::Imu icm20948_msg;
+sensor_msgs::Temperature temp_msg;
+sensor_msgs::RelativeHumidity humidity_msg;
+sensor_msgs::FluidPressure pressure_msg;
+
+ros::Publisher pub_bno080("bno080/data", &bno080_msg);
+//ros::Publisher pub_lsm9ds1("lsm9ds1/data", &lsm9ds1_msg);
+//ros::Publisher pub_lsm9ds1_mag("lsm9ds1/mag", &lsm9ds1_msg);
+ros::Publisher pub_icm20948("icm20948/data", &icm20948_msg);
+ros::Publisher pub_temp("hts221/temperature", &temp_msg);
+ros::Publisher pub_humidity("hts221/humidity", &humidity_msg);
+ros::Publisher pub_pressure("lps22hb/pressure", &pressure_msg);
+
+long bno080_timer;
+long lsm9ds1_timer;
+long icm20948_timer;
+long hts221_timer;
+long lps22hb_timer;
 
 // ---- BNO080 Configuration ----
 BNO080 myBNO;
@@ -25,37 +68,51 @@ BNO080 myBNO;
                         // the ADR jumper is closed the value becomes 0
 ICM_20948_I2C myICM;  // Otherwise create an ICM_20948_I2C object
 
-void setup() {
-  // ---- General Initialization ----
+// ---- LSM9DS1 Configuration ----
+float gax = 0,gay = 0,gaz = 0,ax = 0,ay = 0,az = 0;
+float gx = 0,gy = 0,gz = 0,mx = 0,my = 0,mz = 0;
 
-  SERIAL_PORT.begin(115200); // Start the serial console
-  delay(100);
+void setup() {
+  // ---- ROS Initialization ----
+  delay(50);
+  nh.getHardware()->setBaud(BAUD);
+  nh.initNode();
+  nh.advertise(pub_bno080);
+//  nh.advertise(pub_lsm9ds1);
+//  nh.advertise(pub_lsm9ds1_mag);
+  nh.advertise(pub_icm20948);
+  nh.advertise(pub_temp);
+  nh.advertise(pub_humidity);
+  nh.advertise(pub_pressure);
+  delay(50);
+  
+  // ---- General Initialization ----
   WIRE_PORT.begin();
   WIRE_PORT.setClock(400000); //Increase I2C data rate to 400kHz
 
   // ---- Initialize BNO080 ----
   if (myBNO.begin() == false)
   {
-    SERIAL_PORT.println("BNO080 not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
+    //SERIAL_PORT.println("BNO080 not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
     while (1);
   }
   myBNO.enableRotationVector(50); //Send data update every 50ms
 
   // ---- Initialize LSM9DS1 ----
   if (!IMU.begin()) {
-    SERIAL_PORT.println("Failed to initialize IMU!");
+    //SERIAL_PORT.println("Failed to initialize LSM9DS1 IMU!");
     while (1);
   }
 
   // ---- Initialize HTS221 ----
   if (!HTS.begin()) {
-    Serial.println("Failed to initialize humidity temperature sensor!");
+    //Serial.println("Failed to initialize HTS221 humidity temperature sensor!");
     while (1);
   }
 
   // ---- Initialize LPS22HB ----
   if (!BARO.begin()) {
-    Serial.println("Failed to initialize pressure sensor!");
+    //Serial.println("Failed to initialize LPS22HB pressure sensor!");
     while (1);
   }
   
@@ -295,127 +352,127 @@ void setup() {
   // Check success
   if (!success)
   {
-    SERIAL_PORT.println(F("Enable DMP failed!"));
-    SERIAL_PORT.println(F("Please check that you have uncommented line 29 (#define ICM_20948_USE_DMP) in ICM_20948_C.h..."));
+//    SERIAL_PORT.println(F("Enable DMP failed!"));
+//    SERIAL_PORT.println(F("Please check that you have uncommented line 29 (#define ICM_20948_USE_DMP) in ICM_20948_C.h..."));
     while (1)
       ; // Do nothing more
   }
+
+  bno080_timer = millis();
+  lsm9ds1_timer = millis();
+  icm20948_timer = millis();
+  hts221_timer = millis();
+  lps22hb_timer = millis();
+  
 }
 
 void loop()
 {
-  float gax,gay,gaz,ax,ay,az,gx,gy,gz,mx,my,mz;
+//  if (millis() - lsm9ds1_timer > (1000/lsm9ds1_rate)){ 
+//    lsm9ds1_timer = millis();
+//    
+//    if (IMU.accelerationAvailable()) {
+//      IMU.readAcceleration(gax,gay,gaz);
+//      ax = gax*GACC;
+//      ay = gay*GACC;
+//      az = gaz*GACC;
+//    }
+//    if (IMU.gyroscopeAvailable()) {
+//      IMU.readGyroscope(gx, gy, gz);
+//    }
+//    if (IMU.magneticFieldAvailable()) {
+//      IMU.readMagneticField(mx, my, mz);
+//    }
+//
+//    lsm9ds1_msg.linear_acceleration.x = ax;
+//    lsm9ds1_msg.linear_acceleration.y = ay;
+//    lsm9ds1_msg.linear_acceleration.z = az;
+//    lsm9ds1_msg.angular_velocity.x = gx;
+//    lsm9ds1_msg.angular_velocity.y = gy;
+//    lsm9ds1_msg.angular_velocity.z = gz;
+//    pub_lsm9ds1.publish(&lsm9ds1_msg);
+//
+//    lsm9ds1_mag_msg.magnetic_field.x = mx;
+//    lsm9ds1_mag_msg.magnetic_field.y = my;
+//    lsm9ds1_mag_msg.magnetic_field.z = mz;
+//    pub_lsm9ds1_mag.publish(&lsm9ds1_mag_msg);
+//    nh.spinOnce();
+//  }
 
-  if (IMU.accelerationAvailable()) {
-    IMU.readAcceleration(gax,gay,gaz);
-    ax = gax*GACC;
-    ay = gay*GACC;
-    az = gaz*GACC;
-  }
-  if (IMU.gyroscopeAvailable()) {
-    IMU.readGyroscope(gx, gy, gz);
-  }
-  if (IMU.magneticFieldAvailable()) {
-    IMU.readMagneticField(mx, my, mz);
-  }
-
-  SERIAL_PORT.print(F("LSM9DS1: (ax:"));
-  SERIAL_PORT.print(ax,2);
-  SERIAL_PORT.print(F(",ay:"));
-  SERIAL_PORT.print(ay,2);
-  SERIAL_PORT.print(F(",az:"));
-  SERIAL_PORT.print(az,2);
-  SERIAL_PORT.print(F(")m/s^2\t"));
-  
-  SERIAL_PORT.print(F("(gx:"));
-  SERIAL_PORT.print(gx,2);
-  SERIAL_PORT.print(F(",gy:"));
-  SERIAL_PORT.print(gy,2);
-  SERIAL_PORT.print(F(",gz:"));
-  SERIAL_PORT.print(gz,2);
-  SERIAL_PORT.print(F(")degrees/s\t")); 
-
-  SERIAL_PORT.print(F("(mx:"));
-  SERIAL_PORT.print(mx,2);
-  SERIAL_PORT.print(F(",my:"));
-  SERIAL_PORT.print(my,2);
-  SERIAL_PORT.print(F(",mz:"));
-  SERIAL_PORT.print(mz,2);
-  SERIAL_PORT.println(F(")uT\t")); 
-
-  
-  // Read any DMP data waiting in the FIFO
-  // Note:
-  //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFONoDataAvail if no data is available.
-  //    If data is available, readDMPdataFromFIFO will attempt to read _one_ frame of DMP data.
-  //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOIncompleteData if a frame was present but was incomplete
-  //    readDMPdataFromFIFO will return ICM_20948_Stat_Ok if a valid frame was read.
-  //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOMoreDataAvail if a valid frame was read _and_ the FIFO contains more (unread) data.
-  icm_20948_DMP_data_t data;
-  myICM.readDMPdataFromFIFO(&data);
-  
-  if(( myICM.status == ICM_20948_Stat_Ok ) || ( myICM.status == ICM_20948_Stat_FIFOMoreDataAvail )) // Was valid data available?
-  {
-    if ( (data.header & DMP_header_bitmap_Quat9) > 0 ) // We have asked for orientation data so we should receive Quat9
+  if (millis() - icm20948_timer > (1000/icm20948_rate)){ 
+    icm20948_timer = millis();
+    icm_20948_DMP_data_t data;
+    myICM.readDMPdataFromFIFO(&data);
+    
+    if(( myICM.status == ICM_20948_Stat_Ok ) || ( myICM.status == ICM_20948_Stat_FIFOMoreDataAvail )) // Was valid data available?
     {
-      // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
-      // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
-      // The quaternion data is scaled by 2^30.
-      
-      // Scale to +/- 1
-      double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
-      double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
-      double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
-      double q0 = sqrt( 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
-
-      // Output the Quaternion data in the format expected by ZaneL's Node.js Quaternion animation tool
-      SERIAL_PORT.print(F("ICM: {\"quat_w\":"));
-      SERIAL_PORT.print(q0, 3);
-      SERIAL_PORT.print(F(", \"quat_x\":"));
-      SERIAL_PORT.print(q1, 3);
-      SERIAL_PORT.print(F(", \"quat_y\":"));
-      SERIAL_PORT.print(q2, 3);
-      SERIAL_PORT.print(F(", \"quat_z\":"));
-      SERIAL_PORT.print(q3, 3);
-      SERIAL_PORT.println(F("}"));
-      
+      if ( (data.header & DMP_header_bitmap_Quat9) > 0 ) // We have asked for orientation data so we should receive Quat9
+      {
+        // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
+        // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
+        // The quaternion data is scaled by 2^30.
+        
+        // Scale to +/- 1
+        double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q0 = sqrt( 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
+  
+        icm20948_msg.orientation.x = q1;
+        icm20948_msg.orientation.y = q2;
+        icm20948_msg.orientation.z = q3;
+        icm20948_msg.orientation.w = q0;
+        icm20948_msg.header.stamp = nh.now();
+        pub_icm20948.publish(&icm20948_msg);
+        nh.spinOnce();
+      }
     }
   }
-
+  
   //Look for reports from the IMU
-  if (myBNO.dataAvailable() == true)
+  if (millis() - bno080_timer > (1000/bno080_rate) && myBNO.dataAvailable() == true)
   {
+    bno080_timer = millis();
     float quatI = myBNO.getQuatI();
     float quatJ = myBNO.getQuatJ();
     float quatK = myBNO.getQuatK();
     float quatReal = myBNO.getQuatReal();
-    float quatRadianAccuracy = myBNO.getQuatRadianAccuracy();
-
-    SERIAL_PORT.print(F("BNO: {\"quat_w\":"));
-    SERIAL_PORT.print(quatReal, 3);
-    SERIAL_PORT.print(F(", \"quat_x\":"));
-    SERIAL_PORT.print(quatI, 3);
-    SERIAL_PORT.print(F(", \"quat_y\":"));
-    SERIAL_PORT.print(quatJ, 3);
-    SERIAL_PORT.print(F(", \"quat_z\":"));
-    SERIAL_PORT.print(quatK, 3);
-    SERIAL_PORT.println(F("}"));
+    
+    bno080_msg.orientation.x = quatI;
+    bno080_msg.orientation.y = quatJ;
+    bno080_msg.orientation.z = quatK;
+    bno080_msg.orientation.w = quatReal;
+    bno080_msg.header.stamp = nh.now();
+    pub_bno080.publish(&bno080_msg);
+    nh.spinOnce();
   }
 
-  float temperature = HTS.readTemperature();
-  float humidity    = HTS.readHumidity();
-  SERIAL_PORT.print("HTS: Temp = ");
-  SERIAL_PORT.print(temperature);
-  SERIAL_PORT.print(" °C");
-  SERIAL_PORT.print("Humidity    = ");
-  SERIAL_PORT.print(humidity);
-  SERIAL_PORT.println(" %");
+  if (millis() - hts221_timer > (1000/hts221_rate)){ 
+    hts221_timer = millis();
+    float temperature = HTS.readTemperature();
+    float humidity    = HTS.readHumidity()/100.0;
 
-  // read the sensor value
-  float pressure = BARO.readPressure();
-  // print the sensor value
-  SERIAL_PORT.print("LPS: Pressure = ");
-  SERIAL_PORT.print(pressure);
-  SERIAL_PORT.println(" kPa");
+    temp_msg.header.stamp = nh.now();
+    temp_msg.temperature = temperature;
+
+    humidity_msg.header.stamp = nh.now();
+    humidity_msg.relative_humidity = humidity;
+    
+    pub_temp.publish(&temp_msg);
+    pub_humidity.publish(&humidity_msg);
+    nh.spinOnce();
+  }
+
+  if (millis() - lps22hb_timer > (1000/lps22hb_rate)){ 
+    lps22hb_timer = millis();
+    float pressure = BARO.readPressure()*1000;
+
+    pressure_msg.header.stamp = nh.now();
+    pressure_msg.fluid_pressure = pressure;
+
+    pub_pressure.publish(&pressure_msg);
+    nh.spinOnce();
+  }
+  delay(10); // delay for good measure
   
 }
