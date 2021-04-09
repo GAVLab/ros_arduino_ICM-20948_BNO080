@@ -24,7 +24,7 @@
  * Distributed as-is; no warranty is given.
  ***************************************************************/
 
-//#define QUAT_ANIMATION // Uncomment this line to output data in the correct format for ZaneL's Node.js Quaternion animation tool: https://github.com/ZaneL/quaternion_sensor_3d_nodejs
+#define QUAT_ANIMATION // Uncomment this line to output data in the correct format for ZaneL's Node.js Quaternion animation tool: https://github.com/ZaneL/quaternion_sensor_3d_nodejs
 
 #include "src/ICM_20948.h"  // Click here to get the library: http://librarymanager/All#SparkFun_ICM_20948_IMU
 
@@ -377,7 +377,7 @@ void loop()
       
 #ifndef QUAT_ANIMATION
       SERIAL_PORT.print(F("Q1:"));
-      SERIAL_PORT.print(q1, 3);
+      SERIAL_PORT.print(q1, 3);      
       SERIAL_PORT.print(F(" Q2:"));
       SERIAL_PORT.print(q2, 3);
       SERIAL_PORT.print(F(" Q3:"));
@@ -386,21 +386,23 @@ void loop()
       SERIAL_PORT.println(data.Quat9.Data.Accuracy);
 #else
       // Output the Quaternion data in the format expected by ZaneL's Node.js Quaternion animation tool
-      SERIAL_PORT.print(F("{\"quat_w\":"));
-      SERIAL_PORT.print(q0, 3);
-      SERIAL_PORT.print(F(", \"quat_x\":"));
-      SERIAL_PORT.print(q1, 3);
-      SERIAL_PORT.print(F(", \"quat_y\":"));
-      SERIAL_PORT.print(q2, 3);
-      SERIAL_PORT.print(F(", \"quat_z\":"));
-      SERIAL_PORT.print(q3, 3);
-      SERIAL_PORT.println(F("}"));
+      if (!isnan(q0)){
+        SERIAL_PORT.print(F("{\"quat_w\":"));
+        SERIAL_PORT.print(q0, 3);      
+        SERIAL_PORT.print(F(", \"quat_x\":"));
+        SERIAL_PORT.print(q1, 3);
+        SERIAL_PORT.print(F(", \"quat_y\":"));
+        SERIAL_PORT.print(q2, 3);
+        SERIAL_PORT.print(F(", \"quat_z\":"));
+        SERIAL_PORT.print(q3, 3);
+        SERIAL_PORT.println(F("}"));
+      }      
 #endif
     }
   }
-
-  if ( myICM.status != ICM_20948_Stat_FIFOMoreDataAvail ) // If more data is available then we should read it right away - and not delay
-  {
-    delay(10);
-  }
+//  delay(50);
+//  if ( myICM.status != ICM_20948_Stat_FIFOMoreDataAvail ) // If more data is available then we should read it right away - and not delay
+//  {
+//    delay(10);
+//  }
 }

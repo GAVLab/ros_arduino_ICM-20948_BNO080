@@ -35,11 +35,11 @@
 
 // ---- ROS Configuration ----
 ros::NodeHandle  nh;
-#define BAUD 115200
+#define BAUD 57600
 
 sensor_msgs::Imu bno080_msg;
-sensor_msgs::Imu lsm9ds1_msg;
-sensor_msgs::MagneticField lsm9ds1_mag_msg;
+//sensor_msgs::Imu lsm9ds1_msg;
+//sensor_msgs::MagneticField lsm9ds1_mag_msg;
 sensor_msgs::Imu icm20948_msg;
 sensor_msgs::Temperature temp_msg;
 sensor_msgs::RelativeHumidity humidity_msg;
@@ -399,33 +399,33 @@ void loop()
 //    nh.spinOnce();
 //  }
 
-  if (millis() - icm20948_timer > (1000/icm20948_rate)){ 
-    icm20948_timer = millis();
-    icm_20948_DMP_data_t data;
-    myICM.readDMPdataFromFIFO(&data);
-    
-    if(( myICM.status == ICM_20948_Stat_Ok ) || ( myICM.status == ICM_20948_Stat_FIFOMoreDataAvail )) // Was valid data available?
-    {
-      if ( (data.header & DMP_header_bitmap_Quat9) > 0 ) // We have asked for orientation data so we should receive Quat9
-      {
-        // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
-        // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
-        // The quaternion data is scaled by 2^30.
-        
-        // Scale to +/- 1
-        double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
-        double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
-        double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
-        double q0 = sqrt( 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
+  icm_20948_DMP_data_t data;
+  myICM.readDMPdataFromFIFO(&data);
   
-        icm20948_msg.orientation.x = q1;
-        icm20948_msg.orientation.y = q2;
-        icm20948_msg.orientation.z = q3;
-        icm20948_msg.orientation.w = q0;
-        icm20948_msg.header.stamp = nh.now();
-        pub_icm20948.publish(&icm20948_msg);
-        nh.spinOnce();
-      }
+  if(( myICM.status == ICM_20948_Stat_Ok ) || ( myICM.status == ICM_20948_Stat_FIFOMoreDataAvail )) // Was valid data available?
+  {
+    if ( (data.header & DMP_header_bitmap_Quat9) > 0 ) // We have asked for orientation data so we should receive Quat9
+    {
+      // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
+      // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
+      // The quaternion data is scaled by 2^30.
+      
+      // Scale to +/- 1
+      float q1 = ((float)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+      float q2 = ((float)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+      float q3 = ((float)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
+      float q0 = sqrt( 1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
+
+        if (millis() - icm20948_timer > (1000/icm20948_rate) && !isnan(q0)){ 
+          icm20948_timer = millis();
+          icm20948_msg.orientation.x = q1;
+          icm20948_msg.orientation.y = q2;
+          icm20948_msg.orientation.z = q3;
+          icm20948_msg.orientation.w = q0;
+          icm20948_msg.header.stamp = nh.now();
+          pub_icm20948.publish(&icm20948_msg);
+          nh.spinOnce();
+        }
     }
   }
   
@@ -473,6 +473,6 @@ void loop()
     pub_pressure.publish(&pressure_msg);
     nh.spinOnce();
   }
-  delay(10); // delay for good measure
+  //delay(10); // delay for good measure
   
 }
